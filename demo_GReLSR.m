@@ -1,8 +1,7 @@
+%code of A GReLSR model
 clc
 clear
 close all
-
-%code of A GReLSR model
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%数据加载%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 addpath(genpath('data'));%添加数据集所在路径
@@ -66,7 +65,7 @@ for i = 1:length(lambdaE)
     for j=1:length(gammaF)
         fprintf("The lambda is %e and The gammaF is %e \n",lambdaE(i),gammaF(j));
         opts.gamma = gammaF(j);
-        [W,b] = GReLSR1(X,Y,Train_Y',opts);
+        [W,b] = optimization_GReLSR(X,Y,Train_Y',opts);
 
         predict_label=zeros(size(Test_X,2),1);
         for ii=1:size(Test_X,2)

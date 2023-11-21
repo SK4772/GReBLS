@@ -2,12 +2,13 @@ clc
 clear
 close all
 
+%parpool(4)
 %code of A GReLSR model
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%数据加载%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 addpath(genpath('data'));%添加数据集所在路径
 addpath(genpath('utilities'));%添加函数所在路径
-name = 'AR';%加载数据集名称
+name = 'COIL20';%加载数据集名称
 load (name);%加载数据集
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%参数设置%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -16,12 +17,12 @@ Ng=randi([15,30],1,1);
 N2=randi([1000,3000],1,1);% number of enhancement nodes
 s = .8;
 %%两个参数的变化范围
-lambdaE=[1 1e-1 1e-2 1e-3 1e-4 1e-5 1e-6 1e-7 1e-8  ];
-gammaF=[1e+4 1e+3 1e+2 1e+1  1 1e-1 1e-2 1e-3 1e-4];
+lambdaE=[1e+4 1e+3 1e+2 1e+1  1 1e-1 1e-2 1e-3 1e-4];
+gammaF=[1e+4 1e+3 1e+2 1e+1  1 1e-1 1e-2 1e-3 ];
 %%每类筛选出训练样本的个数
 select_num = 8;
 %%最大迭代次数
-opts.maxIter=100;
+maxIter=100;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%数据变量%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Train_X = [];
 Train_Y = [];
@@ -35,10 +36,10 @@ fea = double(fea);
 nnClass = length(unique(gnd));  % The number of classes;
 num_Class = [];%每类中所含样本数目
 for i = 1:nnClass
-  num_Class = [num_Class length(find(gnd==i))]; %The number of samples of each class
+    num_Class = [num_Class length(find(gnd==i))]; %The number of samples of each class
 end
 %%%%数据分离，分为测试数据和训练数据%%%%
-for j = 1:nnClass    
+for j = 1:nnClass
     idx      = find(gnd==j);%select samples id per class
     randIdx  = randperm(num_Class(j));%每类样本中的样本数为num_Class(j)，将他们随机排列
     %从中随机取得select_num个样本当作训练数据
@@ -64,33 +65,58 @@ accuracy=0;%准确率（最大值）
 lambda=0;
 gamma=0;
 rate_acc = zeros(length(lambdaE),length(gammaF));
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%数据训练（无偏置）%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%数据训练%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts.nnClass=nnClass;
 for i = 1:length(lambdaE)
-    opts.lambda = lambdaE(i);
-    for j=1:length(gammaF)
+    lambda = lambdaE(i);
+    parfor j=1:length(gammaF)
         fprintf("%d:The lambda is %e and The gammaF is %e \n",i,lambdaE(i),gammaF(j));
-        opts.gamma = gammaF(j);
-        [W,b] = GReLSR1(X,Y,Train_Y',opts);
-
+        gamma = gammaF(j);
+        [W] = GReBLS(X,Y,Train_Y',maxIter,gamma,lambda,nnClass);
         predict_label=zeros(size(Test_X,2),1);
         for ii=1:size(Test_X,2)
             %%y是测试样本； test是测试样本集
             y=Test_X(:,ii);
-
-            reconstruction=W'*y+b;
-
+            reconstruction=W'*y;
             [~,predict_label(ii)]=max(reconstruction);
         end
         rate_acc(i,j) = calcError(Test_Y, predict_label, 1:nnClass);
-        %获取最优的准确率
-        if accuracy<=rate_acc(i,j)
-            accuracy=rate_acc(i,j);
-            lambda=opts.lambda;
-            gamma=opts.gamma;
-        end
-    end
 
+    end
+    acc=max(max(rate_acc));
+    [M,N] = find (rate_acc == max(max(rate_acc)));
+    accuracy=acc(1);
+    lambda=lambdaE(M(1));
+    gamma=gammaF(N(1));
 end
-save ( ['result\AR\train8\1Result_' name '_' num2str(accuracy) '_' num2str(N1) '_' num2str(N2) '_' num2str(Ng) '_',num2str(select_num) '.mat'], 'accuracy', 'lambda', 'gamma', 'rate_acc','N1','N2','Ng');
+save ( ['result\0Result_' name '_' num2str(select_num) '_' num2str(accuracy) '_' num2str(N1) '_' num2str(N2) '_' num2str(Ng) '.mat'], 'accuracy', 'lambda', 'gamma', 'rate_acc','N1','N2','Ng');
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%数据训练%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+accuracy=0;%准确率（最大值）
+lambda=0;
+gamma=0;
+rate_acc = zeros(length(lambdaE),length(gammaF));
+for i = 1:length(lambdaE)
+    lambda = lambdaE(i);
+    parfor j=1:length(gammaF)
+        fprintf("%d:The lambda is %e and The gammaF is %e \n",i,lambdaE(i),gammaF(j));
+        gamma = gammaF(j);
+        [W,b] = optimization_GReBLS(X,Y,Train_Y',maxIter,gamma,lambda,nnClass);
+        predict_label=zeros(size(Test_X,2),1);
+        for ii=1:size(Test_X,2)
+            %%y是测试样本； test是测试样本集
+            y=Test_X(:,ii);
+            reconstruction=W'*y+b;
+            [~,predict_label(ii)]=max(reconstruction);
+        end
+        rate_acc(i,j) = calcError(Test_Y, predict_label, 1:nnClass);
+
+    end
+    acc=max(max(rate_acc));
+    [M,N] = find (rate_acc == max(max(rate_acc)));
+    accuracy=acc(1);
+    lambda=lambdaE(M(1));
+    gamma=gammaF(N(1));
+end
+save ( ['result\Result_' name '_' num2str(select_num) '_' num2str(accuracy) '_' num2str(N1) '_' num2str(N2) '_' num2str(Ng) '.mat'], 'accuracy', 'lambda', 'gamma', 'rate_acc','N1','N2','Ng');
+
