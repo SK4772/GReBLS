@@ -8,7 +8,7 @@ close all
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%数据加载%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 addpath(genpath('data'));%添加数据集所在路径
 addpath(genpath('utilities'));%添加函数所在路径
-name = 'COIL20';%加载数据集名称
+name = 'AR';%加载数据集名称
 load (name);%加载数据集
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%参数设置%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -72,7 +72,7 @@ for i = 1:length(lambdaE)
     parfor j=1:length(gammaF)
         fprintf("%d:The lambda is %e and The gammaF is %e \n",i,lambdaE(i),gammaF(j));
         gamma = gammaF(j);
-        [W] = GReBLS(X,Y,Train_Y',maxIter,gamma,lambda,nnClass);
+        [W] = optimization_GReBLS1(X,Y,Train_Y',maxIter,gamma,lambda,nnClass);
         predict_label=zeros(size(Test_X,2),1);
         for ii=1:size(Test_X,2)
             %%y是测试样本； test是测试样本集
